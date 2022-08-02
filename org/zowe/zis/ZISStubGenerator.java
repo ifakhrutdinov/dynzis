@@ -26,7 +26,7 @@ public class ZISStubGenerator {
         this.hFileName = hFileName;
     }
 
-    static String[] hlasmProlog =
+    private static final String[] hlasmProlog =
             {
                     "         TITLE 'ZISSTUBS'",
                     "         ACONTROL AFPR",
@@ -37,25 +37,25 @@ public class ZISStubGenerator {
                     "         IEABRCX DEFINE",
                     ".* The HLASM GOFF option is needed to assemble this program"};
 
-    static String[] hlasmEpilog =
+    private static final String[] hlasmEpilog =
             {
                     "         EJECT",
                     "ZISSTUBS CSECT ,",
                     "         END"};
 
-    void writeLines(PrintStream out, String[] lines) {
+    private void writeLines(PrintStream out, String[] lines) {
         for (String line : lines) {
             out.printf("%s\n", line);
         }
     }
 
-    BufferedReader openEbcdic(String filename) throws IOException {
+    private BufferedReader openEbcdic(String filename) throws IOException {
         return new BufferedReader(new InputStreamReader(new FileInputStream(filename), "Cp1047"));
     }
 
-    void generateCode(PrintStream out, boolean generateASM, DispatchMode dispatchMode) throws IOException {
+    private void generateCode(PrintStream out, boolean generateASM, DispatchMode dispatchMode) throws IOException {
         BufferedReader reader = openEbcdic(hFileName);
-        String line = null;
+        String line;
         if (generateASM) {
             writeLines(out, hlasmProlog);
         }
