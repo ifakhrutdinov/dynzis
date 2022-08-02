@@ -1,3 +1,13 @@
+/*
+  This program and the accompanying materials are
+  made available under the terms of the Eclipse Public License v2.0 which accompanies
+  this distribution, and is available at https://www.eclipse.org/legal/epl-v20.html
+
+  SPDX-License-Identifier: EPL-2.0
+
+  Copyright Contributors to the Zowe Project.
+ */
+
 package org.zowe.zis;
 
 import java.io.IOException;
@@ -7,18 +17,13 @@ import java.io.InputStreamReader;
 import java.io.FileInputStream;
 import java.io.PrintStream;
 
+/**
+ The purpose of the stubs is to be able to build ZIS plugins that do NOT
+ statically link zowe-common-c and ZIS base code into the plugin.
+ */
 public class ZISStubGenerator {
 
-  /* 
-     The purpose of the stubs is to be able to build ZIS plugins that do NOT 
-     statically link zowe-common-c and ZIS base code into the plugin.
-
-     Reserving some low slots for version and internal purposes 
-
-      
-  */
-
-    String hFileName;
+    private final String hFileName;
 
     private enum DispatchMode {R12, ZVTE}
 
@@ -35,13 +40,15 @@ public class ZISStubGenerator {
                     "ZISSTUBS RMODE ANY",
                     "         SYSSTATE ARCHLVL=2,AMODE64=YES",
                     "         IEABRCX DEFINE",
-                    ".* The HLASM GOFF option is needed to assemble this program"};
+                    ".* The HLASM GOFF option is needed to assemble this program"
+            };
 
     private static final String[] hlasmEpilog =
             {
                     "         EJECT",
                     "ZISSTUBS CSECT ,",
-                    "         END"};
+                    "         END"
+            };
 
     private void writeLines(PrintStream out, String[] lines) {
         for (String line : lines) {
@@ -113,8 +120,7 @@ public class ZISStubGenerator {
                     out.printf("         LG   15,X'%02X'(,15)    %s\n", index * 8, symbol);
                     out.print("         BR   15\n");
                 } else {
-                    out.printf("    stubVector[ZIS_STUB_%-8.8s] = (void*)%s;\n",
-                            symbol, functionName);
+                    out.printf("    stubVector[ZIS_STUB_%-8.8s] = (void*)%s;\n", symbol, functionName);
                 }
             }
         }
@@ -124,17 +130,67 @@ public class ZISStubGenerator {
         reader.close();
     }
 
-    // java com.zossteam.zis.ZISStubGenerator asm zisstubs.h
-    // java com.zossteam.zis.ZISStubGenerator init zisstubs.h
+    private static void printHelp(String reason) {
+        if (reason != null) {
+            System.out.println(reason);
+        }
+        System.out.println();
+        System.out.println("Usage: java com.zossteam.zis.ZISStubGenerator <command> <stub_header> [dispatch_mode]");
+        System.out.println();
+        System.out.println("Options:");
+        System.out.println("  command - the utility command (init, asm)");
+        System.out.println("    asm - generate a stub file");
+        System.out.println("    init - generate the initialization code for the base plugin");
+        System.out.println("  sub_header - the header with your stub definitions (usually zisstubs.h)");
+        System.out.println("  dispatch_mode - the dispatch mode of the stub routines (only used with the asm command)");
+        System.out.println("    r12 - the stub vector is based off of GPR12 (default)");
+        System.out.println("    zvte - the stub vector is based off of the ZVTE");
+        System.out.println();
+    }
+
     public static void main(String[] args) throws Exception {
+
+        if (args.length == 0 || args[0].equals("-h") || args[0].equals("--help")) {
+            printHelp(null);
+            return;
+        }
+
+        if (args.length < 2) {
+            printHelp("Error: too few arguments.");
+            return;
+        }
+
         String command = args[0];
         String hFileName = args[1];
         ZISStubGenerator generator = new ZISStubGenerator(hFileName);
         if (command.equalsIgnoreCase("asm")) {
-            generator.generateCode(System.out, true, DispatchMode.R12);
+            DispatchMode dispatchMode = DispatchMode.R12;
+            if (args.length >= 3) {
+                String modeString = args[2];
+                if (modeString.equalsIgnoreCase("zvte")) {
+                    dispatchMode = DispatchMode.ZVTE;
+                } else if (!modeString.equalsIgnoreCase("r12")) {
+                    printHelp("Error: unknown dispatch mode " + modeString + ".");
+                    return;
+                }
+            }
+            generator.generateCode(System.out, true, dispatchMode);
         } else if (command.equalsIgnoreCase("init")) {
             generator.generateCode(System.out, false, DispatchMode.R12);
+        } else {
+            printHelp("Error: unknown command " + command + ".");
         }
+
     }
 
 }
+
+/*
+  This program and the accompanying materials are
+  made available under the terms of the Eclipse Public License v2.0 which accompanies
+  this distribution, and is available at https://www.eclipse.org/legal/epl-v20.html
+
+  SPDX-License-Identifier: EPL-2.0
+
+  Copyright Contributors to the Zowe Project.
+ */
