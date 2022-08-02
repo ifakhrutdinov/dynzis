@@ -20,6 +20,8 @@ public class ZISStubGenerator {
 
     String hFileName;
 
+    private enum DispatchMode {R12, ZVTE}
+
     public ZISStubGenerator(String hFileName) {
         this.hFileName = hFileName;
     }
@@ -51,16 +53,12 @@ public class ZISStubGenerator {
         return new BufferedReader(new InputStreamReader(new FileInputStream(filename), "Cp1047"));
     }
 
-    static final int DISPATCH_ZVTE = 1;
-    static final int DISPATCH_R12 = 2;
-
-    void generateCode(PrintStream out, boolean generateASM) throws IOException {
+    void generateCode(PrintStream out, boolean generateASM, DispatchMode dispatchMode) throws IOException {
         BufferedReader reader = openEbcdic(hFileName);
         String line = null;
         if (generateASM) {
             writeLines(out, hlasmProlog);
         }
-        int dispatchMode = DISPATCH_R12;
         while ((line = reader.readLine()) != null) {
             if (line.startsWith("#define ZIS_STUB_")) {
                 int spacePos = line.indexOf(' ', 17);
@@ -82,7 +80,7 @@ public class ZISStubGenerator {
                 }
 
                 String commentText = tail.substring(2, tail.length() - 2).trim();
-                String functionName = null;
+                String functionName;
                 boolean isMapped = false;
                 if (commentText.endsWith(" mapped")) {
                     functionName = commentText.substring(0, commentText.length() - 7);
@@ -90,32 +88,30 @@ public class ZISStubGenerator {
                 } else {
                     functionName = commentText;
                 }
-                // System.out.printf("index: 0x%x\n",index);
-                // out.printf(".* SHR64REL ALIAS C'shrmem64Release'\n");
+
                 if (generateASM) {
                     out.printf("         ENTRY %s\n", symbol);
                     if (!isMapped) {
                         out.printf("%-8.8s ALIAS C'%s'\n", symbol, functionName);
                     }
                     switch (dispatchMode) {
-                        case DISPATCH_ZVTE:
+                        case ZVTE -> {
                             out.printf("%-8.8s LLGT 15,16(0,0)       CVT\n", symbol);
-                            out.printf("         LLGT 15,X'8C'(,15)    ECVT\n");
-                            out.printf("         LLGT 15,X'CC'(,15)    CSRCTABL\n");
-                            out.printf("         LLGT 15,X'23C'(,15)   ZVT\n");
-                            out.printf("         LLGT 15,X'9C'(,15)    FIRST ZVTE (the ZIS)\n");
-                            out.printf("         LG   15,X'80'(,15)    ZIS STUB VECTOR\n");
-                            break;
-                        case DISPATCH_R12:
+                            out.print("         LLGT 15,X'8C'(,15)    ECVT\n");
+                            out.print("         LLGT 15,X'CC'(,15)    CSRCTABL\n");
+                            out.print("         LLGT 15,X'23C'(,15)   ZVT\n");
+                            out.print("         LLGT 15,X'9C'(,15)    FIRST ZVTE (the ZIS)\n");
+                            out.print("         LG   15,X'80'(,15)    ZIS STUB VECTOR\n");
+                        }
+                        case R12 -> {
                             out.printf("%-8.8s LLGT 15,X'2A8'(,12)   Get the (R)LE CAA's RLETask\n", symbol);
-                            out.printf("         LLGT 15,X'38'(,15)   Get the RLETasks RLEAnchor\n");
-                            out.printf("         LG   15,X'18'(,15)   Get the Stub Vector \n");
-                            break;
-                        default:
-                            throw new IllegalStateException("unknown dispatch mode " + dispatchMode);
+                            out.print("         LLGT 15,X'38'(,15)   Get the RLETasks RLEAnchor\n");
+                            out.print("         LG   15,X'18'(,15)   Get the Stub Vector \n");
+                        }
+                        default -> throw new IllegalStateException("unknown dispatch mode " + dispatchMode);
                     }
                     out.printf("         LG   15,X'%02X'(,15)    %s\n", index * 8, symbol);
-                    out.printf("         BR   15\n");
+                    out.print("         BR   15\n");
                 } else {
                     out.printf("    stubVector[ZIS_STUB_%-8.8s] = (void*)%s;\n",
                             symbol, functionName);
@@ -135,9 +131,9 @@ public class ZISStubGenerator {
         String hFileName = args[1];
         ZISStubGenerator generator = new ZISStubGenerator(hFileName);
         if (command.equalsIgnoreCase("asm")) {
-            generator.generateCode(System.out, true);
+            generator.generateCode(System.out, true, DispatchMode.R12);
         } else if (command.equalsIgnoreCase("init")) {
-            generator.generateCode(System.out, false);
+            generator.generateCode(System.out, false, DispatchMode.R12);
         }
     }
 
