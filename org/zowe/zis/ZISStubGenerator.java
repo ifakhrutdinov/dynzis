@@ -1,4 +1,4 @@
-package com.zossteam.zis;
+package org.zowe.zis;
 
 import java.io.IOException;
 
