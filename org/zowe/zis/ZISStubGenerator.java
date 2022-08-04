@@ -57,7 +57,7 @@ public class ZISStubGenerator {
     }
 
     private BufferedReader openEbcdic(String filename) throws IOException {
-        return new BufferedReader(new InputStreamReader(new FileInputStream(filename), "Cp1047"));
+        return new BufferedReader(new InputStreamReader(new FileInputStream(filename)));
     }
 
     private void generateCode(PrintStream out, boolean generateASM, DispatchMode dispatchMode) throws IOException {
@@ -73,7 +73,6 @@ public class ZISStubGenerator {
                     throw new IOException(String.format("bad define '%s'\n", line));
                 }
                 String symbol = line.substring(17, spacePos);
-                // System.out.printf("symbol: %s\n",symbol);
                 String tail = line.substring(spacePos + 1).trim();
                 int tailSpacePos = tail.indexOf(' ');
                 if (tailSpacePos == -1) {
@@ -81,8 +80,7 @@ public class ZISStubGenerator {
                 }
                 int index = Integer.parseInt(tail.substring(0, tailSpacePos));
                 tail = tail.substring(tailSpacePos).trim();
-                if (!tail.startsWith("/*") ||
-                        !tail.endsWith("*/")) {
+                if (!tail.startsWith("/*") || !tail.endsWith("*/")) {
                     throw new IOException(String.format("comment with C functionName missing in '%s'\n", line));
                 }
 
