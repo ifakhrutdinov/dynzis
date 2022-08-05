@@ -107,11 +107,13 @@ public class ZISStubGenerator {
                             out.print("         LLGT 15,X'23C'(,15)   ZVT\n");
                             out.print("         LLGT 15,X'9C'(,15)    FIRST ZVTE (the ZIS)\n");
                             out.print("         LG   15,X'80'(,15)    ZIS STUB VECTOR\n");
+                            out.print("         LA   15,X'28'(,15)    Slots address\n");
                         }
                         case R12 -> {
                             out.printf("%-8.8s LLGT 15,X'2A8'(,12)   Get the (R)LE CAA's RLETask\n", symbol);
                             out.print("         LLGT 15,X'38'(,15)   Get the RLETasks RLEAnchor\n");
                             out.print("         LG   15,X'18'(,15)   Get the Stub Vector \n");
+                            out.print("         LA   15,X'28'(,15)   Slots address\n");
                         }
                         default -> throw new IllegalStateException("unknown dispatch mode " + dispatchMode);
                     }
