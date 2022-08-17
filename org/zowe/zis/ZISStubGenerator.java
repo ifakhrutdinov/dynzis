@@ -16,6 +16,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.FileInputStream;
 import java.io.PrintStream;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  The purpose of the stubs is to be able to build ZIS plugins that do NOT
@@ -61,37 +65,40 @@ public class ZISStubGenerator {
     }
 
     private void generateCode(PrintStream out, boolean generateASM, DispatchMode dispatchMode) throws IOException {
+
         BufferedReader reader = openEbcdic(hFileName);
-        String line;
         if (generateASM) {
             writeLines(out, hlasmProlog);
         }
-        while ((line = reader.readLine()) != null) {
-            if (line.startsWith("#define ZIS_STUB_")) {
-                int spacePos = line.indexOf(' ', 17);
-                if (spacePos == -1) {
-                    throw new IOException(String.format("bad define '%s'\n", line));
-                }
-                String symbol = line.substring(17, spacePos);
-                String tail = line.substring(spacePos + 1).trim();
-                int tailSpacePos = tail.indexOf(' ');
-                if (tailSpacePos == -1) {
-                    throw new IOException(String.format("bad define constant '%s'\n", line));
-                }
-                int index = Integer.parseInt(tail.substring(0, tailSpacePos));
-                tail = tail.substring(tailSpacePos).trim();
-                if (!tail.startsWith("/*") || !tail.endsWith("*/")) {
-                    throw new IOException(String.format("comment with C functionName missing in '%s'\n", line));
-                }
 
-                String commentText = tail.substring(2, tail.length() - 2).trim();
-                String functionName;
-                boolean isMapped = false;
-                if (commentText.endsWith(" mapped")) {
-                    functionName = commentText.substring(0, commentText.length() - 7);
-                    isMapped = true;
-                } else {
-                    functionName = commentText;
+        Set<Integer> indices = new HashSet<>();
+        Set<String> symbols = new HashSet<>();
+        Set<String> functions = new HashSet<>();
+        int maxStubNum = 0;
+        Pattern stubPattern = Pattern.compile("^#define\\s+ZIS_STUB_(\\S+)\\s+([0-9]{1,8})\\s*/\\*\\s*(\\S+)(\\s+mapped)?\\s*\\*/\\s*");
+        Pattern maxStubCountPattern = Pattern.compile("^#define\\s+MAX_ZIS_STUBS\\s+([0-9]+)\\s*");
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+
+            Matcher stubMatcher = stubPattern.matcher(line);
+            if (stubMatcher.matches()) {
+                String symbol = stubMatcher.group(1);
+                int index = Integer.parseInt(stubMatcher.group(2));
+                String functionName = stubMatcher.group(3);
+                boolean isMapped = stubMatcher.group(4) != null;
+
+                if (!symbols.add(symbol)) {
+                    throw new RuntimeException("Error: duplicate symbol " + symbol);
+                }
+                if (!functions.add(functionName)) {
+                    throw new RuntimeException("Error: duplicate function name " + functionName);
+                }
+                if (index + 1 > maxStubNum) {
+                    throw new RuntimeException("Error: MAX_ZIS_STUBS " + maxStubNum + " is too low for index " + index);
+                }
+                if (!indices.add(index)) {
+                    throw new RuntimeException("Error: duplicate index " + index);
                 }
 
                 if (generateASM) {
@@ -122,7 +129,14 @@ public class ZISStubGenerator {
                 } else {
                     out.printf("    stubVector[ZIS_STUB_%-8.8s] = (void*)%s;\n", symbol, functionName);
                 }
+                continue;
             }
+
+            Matcher maxStubCountMatcher = maxStubCountPattern.matcher(line);
+            if (maxStubCountMatcher.matches()) {
+                maxStubNum = Integer.parseInt(maxStubCountMatcher.group(1));
+            }
+
         }
         if (generateASM) {
             writeLines(out, hlasmEpilog);
